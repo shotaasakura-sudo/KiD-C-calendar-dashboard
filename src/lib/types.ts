@@ -7,6 +7,7 @@ export type Project = {
 export type ScheduleEvent = {
     id: string
     projectId: string
+    projectName?: string // 動的に抽出した案件名
     title: string
     startDate: string // YYYY-MM-DD format
     endDate: string // YYYY-MM-DD format

@@ -41,13 +41,27 @@ function parseICS(icsData: string): ScheduleEvent[] {
                         endTime = format(pEnd, 'HH:mm')
                     }
 
-                    const hashStr = (currentEvent.summary || '').substring(0, 3)
+                    let rawTitle = currentEvent.summary || 'タイトルなし'
+                    let projectName = 'その他'
+                    let displayTitle = rawTitle
+
+                    // 【案件名】または[案件名]を抽出
+                    const tagMatch = rawTitle.match(/^[【\[]([^】\]]+)[】\]]/)
+                    if (tagMatch && tagMatch[1]) {
+                        projectName = tagMatch[1].trim()
+                        // タイトル表示用からはタグ部分を削除してスッキリさせる
+                        displayTitle = rawTitle.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim() || projectName
+                    }
+
+                    // 抽出した案件名から一意のプロジェクトIDを生成
+                    const hashStr = projectName
                     const projectId = `p_${Buffer.from(hashStr).toString('hex').substring(0, 6)}`
 
                     events.push({
                         id: currentEvent.id || crypto.randomUUID(),
                         projectId,
-                        title: currentEvent.summary || 'タイトルなし',
+                        projectName,
+                        title: displayTitle,
                         startDate: startStr,
                         endDate: endStr,
                         description: currentEvent.description,

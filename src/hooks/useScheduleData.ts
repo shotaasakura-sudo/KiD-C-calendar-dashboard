@@ -43,7 +43,7 @@ export function useScheduleData() {
 
                             backendProjects.push({
                                 id: event.projectId,
-                                name: `カレンダー案件 (${event.projectId})`,
+                                name: event.projectName || `その他の案件 (${event.projectId})`,
                                 color: colors[colorIdx]
                             })
                         }
