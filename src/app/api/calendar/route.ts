@@ -1,25 +1,51 @@
 import { NextResponse } from 'next/server'
-import { ScheduleEvent } from '@/lib/types'
+import { ScheduleEvent, Project } from '@/lib/types'
 import { format } from 'date-fns'
+import { Redis } from '@upstash/redis'
+
+export const dynamic = 'force-dynamic'
+
+let redis: Redis | null = null;
+if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    redis = new Redis({
+      url: process.env.KV_REST_API_URL,
+      token: process.env.KV_REST_API_TOKEN,
+    })
+}
 
 // ICSファイルのテキストデータをパースする簡易関数
-function parseICS(icsData: string): ScheduleEvent[] {
+function parseICS(icsData: string, activeProjects: Project[]): ScheduleEvent[] {
     const events: ScheduleEvent[] = []
     const lines = icsData.split(/\r?\n/)
     let inEvent = false
-    let currentEvent: Partial<ScheduleEvent> & { rawStart?: string; rawEnd?: string; summary?: string } = {}
+    let currentEvent: Partial<ScheduleEvent> & { rawStart?: string; rawEnd?: string; summary?: string; description?: string } = {}
+
+    // 説明文が複数行になる場合（DESCRIPTION: の後に空白で続くケース）に対応するため
+    let lastKey = ''
 
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
+        const rawLine = lines[i]
+        
+        // RFC5545 複数行の継続（行頭がスペースかタブ）
+        if (rawLine.startsWith(' ') || rawLine.startsWith('\t')) {
+            if (inEvent && lastKey === 'DESCRIPTION' && currentEvent.description !== undefined) {
+                currentEvent.description += rawLine.substring(1)
+            }
+            continue;
+        }
+
+        const line = rawLine
 
         if (line === 'BEGIN:VEVENT') {
             inEvent = true
             currentEvent = {}
+            lastKey = ''
             continue
         }
 
         if (line === 'END:VEVENT') {
             inEvent = false
+            lastKey = ''
             if (currentEvent.rawStart) {
                 // Parse dates and build event object
                 try {
@@ -42,34 +68,47 @@ function parseICS(icsData: string): ScheduleEvent[] {
                     }
 
                     let rawTitle = currentEvent.summary || 'タイトルなし'
-                    let projectName = 'その他'
-                    let displayTitle = rawTitle
+                    let extractedProjectName = ''
+                    // ICS files often escape newlines and commas
+                    const fullDesc = (currentEvent.description || '').replace(/\\n/g, '\n').replace(/\\,/g, ',')
+                    
+                    console.log(`--- Parsing Event: ${rawTitle} ---`)
+                    console.log(`Raw Description: ${currentEvent.description}`)
+                    console.log(`Cleaned Description: ${fullDesc}`)
 
-                    // 【案件名】または[案件名]を抽出
-                    const tagMatch = rawTitle.match(/^[【\[]([^】\]]+)[】\]]/)
-                    if (tagMatch && tagMatch[1]) {
-                        projectName = tagMatch[1].trim()
-                        // タイトル表示用からはタグ部分を削除してスッキリさせる
-                        displayTitle = rawTitle.replace(/^[【\[][^】\]]+[】\]]\s*/, '').trim() || projectName
+                    // 【提案B】説明欄の #案件名 を抽出
+                    if (fullDesc) {
+                        // 空白、全角空白、#, カンマ、句読点、改行文字(\r, \n) 以外の文字の連続をハッシュタグとして抽出
+                        const tagMatch = fullDesc.match(/#([^\s　#,。、\r\n]+)/)
+                        if (tagMatch && tagMatch[1]) {
+                            extractedProjectName = tagMatch[1].trim()
+                            console.log(`Found Hashtag: ${extractedProjectName}`)
+                        } else {
+                            console.log(`No hashtag matched in description.`)
+                        }
                     }
 
-                    // 抽出した案件名から一意のプロジェクトIDを生成
-                    const hashStr = projectName
-                    const projectId = `p_${Buffer.from(hashStr).toString('hex').substring(0, 6)}`
+                    // 抽出した案件名がKV（Redis）に保存されている案件かチェック
+                    const matchedProject = activeProjects.find(p => p.name === extractedProjectName)
+                    
+                    console.log(`Matched Project in Redis:`, matchedProject ? matchedProject.name : 'None')
 
-                    events.push({
-                        id: currentEvent.id || crypto.randomUUID(),
-                        projectId,
-                        projectName,
-                        title: displayTitle,
-                        startDate: startStr,
-                        endDate: endStr,
-                        description: currentEvent.description,
-                        location: currentEvent.location,
-                        isAllDay,
-                        startTime,
-                        endTime,
-                    })
+                    // 案件リストに合致する予定のみ返す
+                    if (matchedProject) {
+                        events.push({
+                            id: currentEvent.id || crypto.randomUUID(),
+                            projectId: matchedProject.id,
+                            projectName: matchedProject.name,
+                            title: rawTitle,
+                            startDate: startStr,
+                            endDate: endStr,
+                            description: fullDesc,
+                            location: currentEvent.location,
+                            isAllDay,
+                            startTime,
+                            endTime,
+                        })
+                    }
                 } catch (e) {
                     console.error('Failed to parse event dates:', currentEvent)
                 }
@@ -80,18 +119,21 @@ function parseICS(icsData: string): ScheduleEvent[] {
         if (!inEvent) continue
 
         // Parse properties
-        if (line.startsWith('UID:')) currentEvent.id = line.substring(4)
-        else if (line.startsWith('SUMMARY:')) currentEvent.summary = line.substring(8)
-        else if (line.startsWith('DESCRIPTION:')) currentEvent.description = line.substring(12).replace(/\\n/g, '\n')
-        else if (line.startsWith('LOCATION:')) currentEvent.location = line.substring(9).replace(/\\,/g, ',')
-        // DTSTART and DTEND can have attributes like DTSTART;VALUE=DATE:20231015
+        if (line.startsWith('UID:')) { currentEvent.id = line.substring(4); lastKey = 'UID' }
+        else if (line.startsWith('SUMMARY:')) { currentEvent.summary = line.substring(8); lastKey = 'SUMMARY' }
+        else if (line.startsWith('DESCRIPTION:')) { currentEvent.description = line.substring(12); lastKey = 'DESCRIPTION' }
+        else if (line.startsWith('LOCATION:')) { currentEvent.location = line.substring(9).replace(/\\,/g, ','); lastKey = 'LOCATION' }
         else if (line.startsWith('DTSTART')) {
             const parts = line.split(':')
             if (parts.length > 1) currentEvent.rawStart = parts[1]
+            lastKey = 'DTSTART'
         }
         else if (line.startsWith('DTEND')) {
             const parts = line.split(':')
             if (parts.length > 1) currentEvent.rawEnd = parts[1]
+            lastKey = 'DTEND'
+        } else {
+            lastKey = ''
         }
     }
 
@@ -132,11 +174,21 @@ export async function GET() {
             )
         }
 
-        const res = await fetch(icalUrl, { next: { revalidate: 60 } })
+        // KVからプロジェクト（案件リスト）を取得
+        let activeProjects: Project[] = []
+        if (redis) {
+            const projects = await redis.get<Project[]>('settings:projects')
+            if (projects && Array.isArray(projects)) {
+                activeProjects = projects
+            }
+            // 最初から何も設定されていない場合はデフォルト設定を入れるなどの工夫も可能
+        }
+
+        const res = await fetch(icalUrl, { cache: 'no-store' })
         if (!res.ok) throw new Error(`Failed to fetch iCal: ${res.statusText}`)
 
         const icsData = await res.text()
-        const events = parseICS(icsData)
+        const events = parseICS(icsData, activeProjects)
 
         // 開始日時でソート
         events.sort((a, b) => {
@@ -145,7 +197,7 @@ export async function GET() {
             return dateA.getTime() - dateB.getTime()
         })
 
-        return NextResponse.json({ events })
+        return NextResponse.json({ events, projects: activeProjects })
     } catch (error) {
         console.error('Error fetching calendar events:', error)
         return NextResponse.json({ error: 'Failed to fetch calendar events' }, { status: 500 })

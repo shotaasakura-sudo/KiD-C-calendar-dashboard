@@ -5,16 +5,18 @@ import { Header } from '@/components/Header'
 import { MonthView } from '@/components/MonthView'
 import { YearView } from '@/components/YearView'
 import { EventModal } from '@/components/EventModal'
+import { SettingsModal } from '@/components/SettingsModal'
 import { useScheduleData } from '@/hooks/useScheduleData'
 import { ScheduleEvent, Project } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
   const [viewMode, setViewMode] = useState<'month' | 'year'>('month')
-  const { events, projects, isLoading, error } = useScheduleData()
+  const { events, projects, isLoading, error, refetch } = useScheduleData()
 
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false)
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
   const [visibleProjectIds, setVisibleProjectIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export default function DashboardPage() {
 
   const handleEventClick = (event: ScheduleEvent) => {
     setSelectedEvent(event)
-    setIsModalOpen(true)
+    setIsEventModalOpen(true)
   }
 
   const toggleProjectVisibility = (projectId: string) => {
@@ -42,7 +44,11 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col font-sans">
-      <Header viewMode={viewMode} setViewMode={setViewMode} />
+      <Header 
+        viewMode={viewMode} 
+        setViewMode={setViewMode} 
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
+      />
 
       {/* Project Filter UI */}
       {!isLoading && !error && projects.length > 0 && (
@@ -115,8 +121,17 @@ export default function DashboardPage() {
       <EventModal
         event={selectedEvent}
         project={projects.find(p => p.id === selectedEvent?.projectId)}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isEventModalOpen}
+        onClose={() => setIsEventModalOpen(false)}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        onSaveSuccess={() => {
+          setVisibleProjectIds(new Set()); // Reset visible items
+          refetch(); // Fetch latest settings and events
+        }}
       />
     </div>
   )
