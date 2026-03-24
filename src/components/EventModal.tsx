@@ -4,12 +4,12 @@ import { cn } from '@/lib/utils'
 
 interface EventModalProps {
     event: ScheduleEvent | null
-    project: Project | undefined
+    projects: Project[]
     isOpen: boolean
     onClose: () => void
 }
 
-export function EventModal({ event, project, isOpen, onClose }: EventModalProps) {
+export function EventModal({ event, projects, isOpen, onClose }: EventModalProps) {
     if (!isOpen || !event) return null
 
     // モーダルの外側をクリックしたときに閉じる処理
@@ -26,18 +26,27 @@ export function EventModal({ event, project, isOpen, onClose }: EventModalProps)
         >
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Header Ribbon */}
-                <div className={cn("h-3 w-full", project?.color || "bg-neutral-500")} />
+                <div className="flex h-3 w-full">
+                    {projects.length > 0 ? projects.map(p => (
+                        <div key={p.id} className={cn("flex-1", p.color)} />
+                    )) : <div className="flex-1 bg-neutral-500" />}
+                </div>
 
                 <div className="p-5 sm:p-6">
                     <div className="flex justify-between items-start mb-4">
                         <div>
-                            <h3 className="text-xl font-bold text-neutral-900 mb-1 tracking-tight">{event.title}</h3>
-                            <span className={cn(
-                                "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold text-white shadow-sm",
-                                project?.color || "bg-neutral-500"
-                            )}>
-                                {project?.name || "未分類案件"}
-                            </span>
+                            <h3 className="text-xl font-bold text-neutral-900 mb-1.5 tracking-tight">{event.title}</h3>
+                            <div className="flex flex-wrap gap-1.5">
+                                {projects.length > 0 ? projects.map(p => (
+                                    <span key={p.id} className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold text-white shadow-sm", p.color)}>
+                                        {p.name}
+                                    </span>
+                                )) : (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold text-white shadow-sm bg-neutral-500">
+                                        未分類案件
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <button
                             onClick={onClose}

@@ -105,7 +105,7 @@ export function YearView({ events, projects, onEventClick }: YearViewProps) {
                         {/* Projects and Events */}
                         <div className="flex-1 overflow-y-auto z-10 relative">
                             {projects.map((project, idx) => {
-                                const projectEvents = events.filter(e => e.projectId === project.id)
+                                const projectEvents = events.filter(e => e.projectIds.includes(project.id))
 
                                 return (
                                     <div key={project.id} className={cn(

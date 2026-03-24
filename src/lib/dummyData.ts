@@ -13,7 +13,7 @@ const today = new Date()
 export const mockEvents: ScheduleEvent[] = [
     {
         id: 'e1',
-        projectId: 'p1',
+        projectIds: ['p1', 'p2'],
         title: '要件定義',
         startDate: format(subDays(today, 10), 'yyyy-MM-dd'),
         endDate: format(addDays(today, -5), 'yyyy-MM-dd'),
@@ -22,7 +22,7 @@ export const mockEvents: ScheduleEvent[] = [
     },
     {
         id: 'e2',
-        projectId: 'p1',
+        projectIds: ['p1'],
         title: 'デザイン作成',
         startDate: format(subDays(today, 2), 'yyyy-MM-dd'),
         endDate: format(addDays(today, 5), 'yyyy-MM-dd'),
@@ -31,7 +31,7 @@ export const mockEvents: ScheduleEvent[] = [
     },
     {
         id: 'e3',
-        projectId: 'p2',
+        projectIds: ['p2'],
         title: 'フロントエンド実装',
         startDate: format(today, 'yyyy-MM-dd'),
         endDate: format(addDays(today, 14), 'yyyy-MM-dd'),
@@ -40,7 +40,7 @@ export const mockEvents: ScheduleEvent[] = [
     },
     {
         id: 'e4',
-        projectId: 'p3',
+        projectIds: ['p3'],
         title: '広告配信設定ミーティング',
         startDate: format(addDays(today, 3), 'yyyy-MM-dd'),
         endDate: format(addDays(today, 3), 'yyyy-MM-dd'),
@@ -52,7 +52,7 @@ export const mockEvents: ScheduleEvent[] = [
     },
     {
         id: 'e5',
-        projectId: 'p4',
+        projectIds: ['p4'],
         title: 'サーバーメンテナンス',
         startDate: format(addDays(today, 7), 'yyyy-MM-dd'),
         endDate: format(addDays(today, 7), 'yyyy-MM-dd'),

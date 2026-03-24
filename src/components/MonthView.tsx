@@ -106,7 +106,7 @@ export function MonthView({ events, projects, onEventClick }: MonthViewProps) {
 
                                 <div className="flex flex-col gap-1 mt-1 overflow-y-auto max-h-[80px] no-scrollbar">
                                     {dayEvents.map(event => {
-                                        const project = projects.find(p => p.id === event.projectId)
+                                        const eventProjects = projects.filter(p => event.projectIds.includes(p.id))
                                         const isStart = event.startDate === formattedDate
                                         const isEnd = event.endDate === formattedDate
 
@@ -118,15 +118,19 @@ export function MonthView({ events, projects, onEventClick }: MonthViewProps) {
                                                     onEventClick?.(event)
                                                 }}
                                                 className={cn(
-                                                    "text-[10px] sm:text-xs px-1.5 py-0.5 sm:py-1 rounded-sm truncate text-white shadow-sm flex items-center justify-between transition-transform hover:scale-[1.02] cursor-pointer",
-                                                    project?.color || "bg-neutral-500",
+                                                    "relative text-[10px] sm:text-xs px-1.5 py-0.5 sm:py-1 rounded-sm text-white shadow-sm flex items-center justify-between transition-transform hover:scale-[1.02] cursor-pointer overflow-hidden group/event",
                                                     !isStart && "rounded-l-none border-l-[1px] border-white/20 ml-[-4px]",
                                                     !isEnd && "rounded-r-none mr-[-4px]",
                                                     !isCurrentMonth && "opacity-60"
                                                 )}
-                                                title={`${event.title} (${project?.name})`}
+                                                title={`${event.title} (${eventProjects.map(p => p.name).join(', ')})`}
                                             >
-                                                <span>{isStart ? event.title : '\u00A0'}</span>
+                                                <div className="absolute inset-0 flex -z-10">
+                                                    {eventProjects.length > 0 ? eventProjects.map(p => (
+                                                        <div key={p.id} className={cn("flex-1 h-full", p.color)} />
+                                                    )) : <div className="flex-1 h-full bg-neutral-500" />}
+                                                </div>
+                                                <span className="relative z-10 truncate drop-shadow-sm">{isStart ? event.title : '\u00A0'}</span>
                                             </div>
                                         )
                                     })}

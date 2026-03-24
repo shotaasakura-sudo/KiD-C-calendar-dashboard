@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, Plus, Trash2, Save } from 'lucide-react'
-import { Project } from '@/lib/types'
+import { Project, AppSettings } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 interface SettingsModalProps {
@@ -22,6 +22,8 @@ const COLOR_OPTIONS = [
 
 export function SettingsModal({ isOpen, onClose, onSaveSuccess }: SettingsModalProps) {
     const [projects, setProjects] = useState<Project[]>([])
+    const [appTitle, setAppTitle] = useState('Calendar Dashboard')
+    const [appIconUrl, setAppIconUrl] = useState('')
     const [isLoading, setIsLoading] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -40,6 +42,10 @@ export function SettingsModal({ isOpen, onClose, onSaveSuccess }: SettingsModalP
             const data = await res.json()
             if (data.projects) {
                 setProjects(data.projects)
+            }
+            if (data.appSettings) {
+                setAppTitle(data.appSettings.title || 'Calendar Dashboard')
+                setAppIconUrl(data.appSettings.iconUrl || '')
             }
         } catch (err: any) {
             setError('設定の読み込みに失敗しました')
@@ -68,7 +74,10 @@ export function SettingsModal({ isOpen, onClose, onSaveSuccess }: SettingsModalP
             const res = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projects: cleanProjects })
+                body: JSON.stringify({ 
+                    projects: cleanProjects,
+                    appSettings: { title: appTitle.trim(), iconUrl: appIconUrl }
+                })
             })
 
             const data = await res.json()
@@ -96,6 +105,21 @@ export function SettingsModal({ isOpen, onClose, onSaveSuccess }: SettingsModalP
         setProjects(projects.map(p => p.id === id ? { ...p, [field]: value } : p))
     }
 
+    const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            if (file.size > 1024 * 1024) {
+                setError('画像サイズは1MB以下にしてください。')
+                return
+            }
+            const reader = new FileReader()
+            reader.onloadend = () => {
+                setAppIconUrl(reader.result as string)
+            }
+            reader.readAsDataURL(file)
+        }
+    }
+
     if (!isOpen) return null
 
     return (
@@ -121,6 +145,27 @@ export function SettingsModal({ isOpen, onClose, onSaveSuccess }: SettingsModalP
                         </div>
                     )}
 
+                    <div className="mb-8">
+                        <h3 className="text-sm font-bold text-neutral-700 mb-3 tracking-tight">共通設定（タイトル・アイコン）</h3>
+                        <div className="space-y-4 bg-white p-4 sm:p-5 rounded-xl border border-neutral-200 shadow-sm">
+                             <div>
+                                 <label className="block text-xs font-semibold text-neutral-500 mb-1.5">タイトル</label>
+                                 <input type="text" value={appTitle} onChange={e => setAppTitle(e.target.value)} placeholder="例: My Calendar" className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" />
+                             </div>
+                             <div>
+                                 <label className="block text-xs font-semibold text-neutral-500 mb-1.5">アイコン画像 (最大1MB)</label>
+                                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                                     {appIconUrl ? <img src={appIconUrl} alt="icon" className="w-12 h-12 object-cover rounded-xl shadow-sm border border-neutral-200" /> : <div className="w-12 h-12 bg-neutral-100 border border-neutral-300 rounded-xl flex items-center justify-center text-neutral-400 text-xs text-center p-1 leading-tight">画像なし</div>}
+                                     <input type="file" accept="image/*" onChange={handleIconChange} className="text-sm text-neutral-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 w-full" />
+                                     {appIconUrl && <button onClick={() => setAppIconUrl('')} className="text-xs text-red-500 hover:text-red-600 font-medium whitespace-nowrap shrink-0 px-2 py-1 rounded hover:bg-red-50">クリア</button>}
+                                 </div>
+                             </div>
+                        </div>
+                    </div>
+
+                    <div className="mb-3">
+                        <h3 className="text-sm font-bold text-neutral-700 tracking-tight">案件・タグの設定</h3>
+                    </div>
                     <div className="space-y-3">
                         {isLoading ? (
                             <div className="text-center py-10 text-neutral-500">読み込み中...</div>

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ScheduleEvent, Project } from '@/lib/types'
+import { ScheduleEvent, Project, AppSettings } from '@/lib/types'
 import { mockEvents, mockProjects } from '@/lib/dummyData'
 
 export function useScheduleData() {
     const [events, setEvents] = useState<ScheduleEvent[]>([])
     const [projects, setProjects] = useState<Project[]>([])
+    const [appSettings, setAppSettings] = useState<AppSettings | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
@@ -30,6 +31,7 @@ export function useScheduleData() {
 
                 setEvents(data.events || [])
                 setProjects(data.projects || []) 
+                setAppSettings(data.appSettings || { title: 'Calendar Dashboard' })
             }
         } catch (err: any) {
             console.error(err)
@@ -37,6 +39,7 @@ export function useScheduleData() {
             // エラー時はフォールバックとしてモックを表示
             setEvents(mockEvents)
             setProjects(mockProjects)
+            setAppSettings({ title: 'Calendar Dashboard' })
         } finally {
             setIsLoading(false)
         }
@@ -46,5 +49,5 @@ export function useScheduleData() {
         fetchData()
     }, [fetchData])
 
-    return { events, projects, isLoading, error, refetch: fetchData }
+    return { events, projects, appSettings, isLoading, error, refetch: fetchData }
 }

@@ -4,10 +4,14 @@ export type Project = {
     color: string // Tailwind color class or hex
 }
 
+export type AppSettings = {
+    title: string
+    iconUrl?: string
+}
+
 export type ScheduleEvent = {
     id: string
-    projectId: string
-    projectName?: string // 動的に抽出した案件名
+    projectIds: string[]
     title: string
     startDate: string // YYYY-MM-DD format
     endDate: string // YYYY-MM-DD format

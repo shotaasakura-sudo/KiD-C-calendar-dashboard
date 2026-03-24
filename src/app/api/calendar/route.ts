@@ -68,7 +68,6 @@ function parseICS(icsData: string, activeProjects: Project[]): ScheduleEvent[] {
                     }
 
                     let rawTitle = currentEvent.summary || 'タイトルなし'
-                    let extractedProjectName = ''
                     // ICS files often escape newlines and commas
                     const fullDesc = (currentEvent.description || '').replace(/\\n/g, '\n').replace(/\\,/g, ',')
                     
@@ -76,29 +75,24 @@ function parseICS(icsData: string, activeProjects: Project[]): ScheduleEvent[] {
                     console.log(`Raw Description: ${currentEvent.description}`)
                     console.log(`Cleaned Description: ${fullDesc}`)
 
-                    // 【提案B】説明欄の #案件名 を抽出
+                    let matchedProjects: Project[] = []
                     if (fullDesc) {
-                        // 空白、全角空白、#, カンマ、句読点、改行文字(\r, \n) 以外の文字の連続をハッシュタグとして抽出
-                        const tagMatch = fullDesc.match(/#([^\s　#,。、\r\n]+)/)
-                        if (tagMatch && tagMatch[1]) {
-                            extractedProjectName = tagMatch[1].trim()
-                            console.log(`Found Hashtag: ${extractedProjectName}`)
+                        const tagMatches = [...fullDesc.matchAll(/#([^\s　#,。、\r\n]+)/g)]
+                        const extractedNames = tagMatches.map(m => m[1].trim())
+                        if (extractedNames.length > 0) {
+                            console.log(`Found Hashtags: ${extractedNames.join(', ')}`)
+                            matchedProjects = activeProjects.filter(p => extractedNames.includes(p.name))
+                            console.log(`Matched Projects in Redis:`, matchedProjects.map(p => p.name).join(', ') || 'None')
                         } else {
                             console.log(`No hashtag matched in description.`)
                         }
                     }
 
-                    // 抽出した案件名がKV（Redis）に保存されている案件かチェック
-                    const matchedProject = activeProjects.find(p => p.name === extractedProjectName)
-                    
-                    console.log(`Matched Project in Redis:`, matchedProject ? matchedProject.name : 'None')
-
                     // 案件リストに合致する予定のみ返す
-                    if (matchedProject) {
+                    if (matchedProjects.length > 0) {
                         events.push({
                             id: currentEvent.id || crypto.randomUUID(),
-                            projectId: matchedProject.id,
-                            projectName: matchedProject.name,
+                            projectIds: matchedProjects.map(p => p.id),
                             title: rawTitle,
                             startDate: startStr,
                             endDate: endStr,
@@ -176,12 +170,16 @@ export async function GET() {
 
         // KVからプロジェクト（案件リスト）を取得
         let activeProjects: Project[] = []
+        let appSettings = null
         if (redis) {
-            const projects = await redis.get<Project[]>('settings:projects')
+            const [projects, settings] = await Promise.all([
+                redis.get<Project[]>('settings:projects'),
+                redis.get<any>('settings:app')
+            ])
             if (projects && Array.isArray(projects)) {
                 activeProjects = projects
             }
-            // 最初から何も設定されていない場合はデフォルト設定を入れるなどの工夫も可能
+            appSettings = settings || { title: 'Calendar Dashboard' }
         }
 
         const res = await fetch(icalUrl, { cache: 'no-store' })
@@ -197,7 +195,7 @@ export async function GET() {
             return dateA.getTime() - dateB.getTime()
         })
 
-        return NextResponse.json({ events, projects: activeProjects })
+        return NextResponse.json({ events, projects: activeProjects, appSettings })
     } catch (error) {
         console.error('Error fetching calendar events:', error)
         return NextResponse.json({ error: 'Failed to fetch calendar events' }, { status: 500 })

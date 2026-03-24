@@ -17,8 +17,14 @@ export async function GET() {
     if (!redis) {
         return NextResponse.json({ projects: [] })
     }
-    const projects = await redis.get<Project[]>('settings:projects')
-    return NextResponse.json({ projects: projects || [] })
+    const [projects, appSettings] = await Promise.all([
+        redis.get<Project[]>('settings:projects'),
+        redis.get<any>('settings:app')
+    ])
+    return NextResponse.json({ 
+        projects: projects || [],
+        appSettings: appSettings || { title: 'Calendar Dashboard' }
+    })
   } catch (error) {
     console.error('Error fetching settings:', error)
     return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
@@ -30,12 +36,20 @@ export async function POST(request: Request) {
     if (!redis) {
         return NextResponse.json({ error: 'Redis is not configured' }, { status: 500 })
     }
-    const { projects } = await request.json()
-    if (!Array.isArray(projects)) {
+    const body = await request.json()
+    const { projects, appSettings } = body
+
+    if (projects && !Array.isArray(projects)) {
       return NextResponse.json({ error: 'Invalid data format' }, { status: 400 })
     }
-    await redis.set('settings:projects', projects)
-    return NextResponse.json({ success: true, projects })
+    
+    if (projects) {
+        await redis.set('settings:projects', projects)
+    }
+    if (appSettings) {
+        await redis.set('settings:app', appSettings)
+    }
+    return NextResponse.json({ success: true, projects, appSettings })
   } catch (error) {
     console.error('Error saving settings:', error)
     return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 })

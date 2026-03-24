@@ -1,20 +1,27 @@
 import { Calendar, LayoutList, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+import { AppSettings } from '@/lib/types'
+
 interface HeaderProps {
     viewMode: 'month' | 'year'
     setViewMode: (mode: 'month' | 'year') => void
     onOpenSettings: () => void
+    appSettings?: AppSettings | null
 }
 
-export function Header({ viewMode, setViewMode, onOpenSettings }: HeaderProps) {
+export function Header({ viewMode, setViewMode, onOpenSettings, appSettings }: HeaderProps) {
     return (
         <header className="bg-white border-b border-neutral-200 px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between sticky top-0 z-10 gap-4">
             <h1 className="text-xl font-bold text-neutral-800 flex items-center gap-3 tracking-tight">
-                <div className="bg-blue-600 p-2 rounded-xl text-white shadow-sm">
-                    <Calendar className="w-5 h-5" />
-                </div>
-                Calendar Dashboard
+                {appSettings?.iconUrl ? (
+                    <img src={appSettings.iconUrl} alt="App Icon" className="w-9 h-9 object-cover rounded-xl shadow-sm bg-blue-600 p-0.5" />
+                ) : (
+                    <div className="bg-blue-600 p-2 rounded-xl text-white shadow-sm">
+                        <Calendar className="w-5 h-5" />
+                    </div>
+                )}
+                <span className="truncate">{appSettings?.title || 'Calendar Dashboard'}</span>
             </h1>
 
             <div className="flex bg-neutral-100 p-1 rounded-lg border border-neutral-200 self-stretch sm:self-auto">

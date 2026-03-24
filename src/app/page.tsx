@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
   const [viewMode, setViewMode] = useState<'month' | 'year'>('month')
-  const { events, projects, isLoading, error, refetch } = useScheduleData()
+  const { events, projects, appSettings, isLoading, error, refetch } = useScheduleData()
 
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null)
   const [isEventModalOpen, setIsEventModalOpen] = useState(false)
@@ -40,7 +40,7 @@ export default function DashboardPage() {
     setVisibleProjectIds(next)
   }
 
-  const filteredEvents = events.filter(e => visibleProjectIds.has(e.projectId))
+  const filteredEvents = events.filter(e => e.projectIds.some(pid => visibleProjectIds.has(pid)))
 
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col font-sans">
@@ -48,6 +48,7 @@ export default function DashboardPage() {
         viewMode={viewMode} 
         setViewMode={setViewMode} 
         onOpenSettings={() => setIsSettingsModalOpen(true)}
+        appSettings={appSettings}
       />
 
       {/* Project Filter UI */}
@@ -120,7 +121,7 @@ export default function DashboardPage() {
 
       <EventModal
         event={selectedEvent}
-        project={projects.find(p => p.id === selectedEvent?.projectId)}
+        projects={selectedEvent ? projects.filter(p => selectedEvent.projectIds.includes(p.id)) : []}
         isOpen={isEventModalOpen}
         onClose={() => setIsEventModalOpen(false)}
       />
